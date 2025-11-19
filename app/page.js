@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Wand2, PanelLeftClose, PanelLeftOpen, RotateCcw, Maximize, ArrowLeftRight } from "lucide-react";
+import { Wand2, PanelLeftClose, PanelLeftOpen, RotateCcw } from "lucide-react";
 import { Header } from "@/components/header";
 import { SettingsDialog } from "@/components/settings-dialog";
 import { TextInput } from "@/components/text-input";
@@ -18,17 +18,11 @@ import { MermaidRenderer } from "@/components/mermaid-renderer";
 import { generateMermaidFromText } from "@/lib/ai-service";
 import { isWithinCharLimit } from "@/lib/utils";
 import { isPasswordVerified, hasCustomAIConfig, hasUnlimitedAccess } from "@/lib/config-service";
-import { autoFixMermaidCode, toggleMermaidDirection } from "@/lib/mermaid-fixer";
+// Removed auto-fix and direction toggle features
 import { Switch } from "@/components/ui/switch";
 import { HistoryList } from "@/components/history-list";
 import { getHistory, addHistoryEntry, deleteHistoryEntry, clearHistory } from "@/lib/history-service";
-import { 
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from "@/components/ui/select";
+// Replaced renderer select with a Switch
 import { 
   Dialog,
   DialogContent,
@@ -106,7 +100,7 @@ export default function Home() {
   // 新增状态：左侧面板折叠和渲染模式
   const [isLeftPanelCollapsed, setIsLeftPanelCollapsed] = useState(false);
   const [renderMode, setRenderMode] = useState("excalidraw"); // "excalidraw" | "mermaid"
-  const [isFixing, setIsFixing] = useState(false);
+  // Removed fixing state as smart-fix button is removed
   const [showRealtime, setShowRealtime] = useState(false);
   const [leftTab, setLeftTab] = useState("manual");
   const [historyEntries, setHistoryEntries] = useState([]);
@@ -165,6 +159,18 @@ export default function Home() {
     setHasCustomConfig(hasCustomAIConfig());
   };
 
+  // 渲染模式切换为 Excalidraw 时，模拟“重置视图”按钮点击
+  useEffect(() => {
+    if (renderMode === "excalidraw") {
+      const t = setTimeout(() => {
+        try {
+          window.dispatchEvent(new CustomEvent('resetView'));
+        } catch {}
+      }, 0);
+      return () => clearTimeout(t);
+    }
+  }, [renderMode]);
+
   // 处理错误状态变化
   const handleErrorChange = (error, hasErr) => {
     setErrorMessage(error);
@@ -183,67 +189,7 @@ export default function Home() {
     console.log('Selected model:', modelId);
   }, []);
 
-  // 自动修复Mermaid代码
-  const handleAutoFixMermaid = async () => {
-    if (!mermaidCode) {
-      toast.error("没有代码可以修复");
-      return;
-    }
-
-    setIsFixing(true);
-    setStreamingContent(""); // 清空流式内容，准备显示修复内容
-
-    try {
-      // 流式修复回调函数
-      const handleFixChunk = (chunk) => {
-        setStreamingContent(prev => prev + chunk);
-      };
-
-      // 传递错误信息给AI修复函数
-      const result = await autoFixMermaidCode(mermaidCode, errorMessage, handleFixChunk);
-
-      if (result.error) {
-        toast.error(result.error);
-        // 如果有基础修复的代码，仍然应用它
-        if (result.fixedCode !== mermaidCode) {
-          setMermaidCode(result.fixedCode);
-          toast.info("已应用基础修复");
-        }
-      } else {
-        if (result.fixedCode !== mermaidCode) {
-          setMermaidCode(result.fixedCode);
-          toast.success("AI修复完成");
-        } else {
-          toast.info("代码看起来没有问题");
-        }
-      }
-    } catch (error) {
-      console.error("修复失败:", error);
-      toast.error("修复失败，请稍后重试");
-    } finally {
-      setIsFixing(false);
-      // 修复完成后清空流式内容
-      setTimeout(() => {
-        setStreamingContent("");
-      }, 1000);
-    }
-  };
-
-  // 切换图表方向
-  const handleToggleMermaidDirection = () => {
-    if (!mermaidCode) {
-      toast.error("没有代码可以切换方向");
-      return;
-    }
-
-    const toggledCode = toggleMermaidDirection(mermaidCode);
-    if (toggledCode !== mermaidCode) {
-      setMermaidCode(toggledCode);
-      toast.success("图表方向已切换");
-    } else {
-      toast.info("未检测到可切换的方向");
-    }
-  };
+  // Removed smart-fix and direction toggle handlers
 
   const handleGenerateClick = async () => {
     if (!inputText.trim()) {
@@ -448,44 +394,21 @@ export default function Home() {
                   )}
                 </Button>
 
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleAutoFixMermaid}
-                    disabled={!mermaidCode || isFixing || !hasError}
-                    className="h-9"
-                    title={hasError ? "使用AI智能修复代码问题" : "当前代码没有错误，无需修复"}
-                  >
-                    {isFixing ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
-                    ) : (
-                      <Wand2 className="h-4 w-4" />
-                    )}
-                  </Button>
+                <div className="flex items-center gap-3">
+                  {/* 渲染器选择改为 Switch */}
+                  <div className="flex items-center gap-2">
+                    {/* <span className="text-sm text-muted-foreground hidden sm:inline">渲染器</span> */}
+                    <Switch
+                      checked={renderMode === "mermaid"}
+                      onCheckedChange={(checked) => setRenderMode(checked ? "mermaid" : "excalidraw")}
+                      title="切换渲染器：Excalidraw / Mermaid"
+                    />
+                    <span className="text-xs text-muted-foreground">
+                      {renderMode === "mermaid" ? "Mermaid" : "Excalidraw"}
+                    </span>
+                  </div>
 
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleToggleMermaidDirection}
-                    disabled={!mermaidCode}
-                    className="h-9"
-                    title="切换图表方向 (横向/纵向)"
-                  >
-                    <ArrowLeftRight className="h-4 w-4" />
-                  </Button>
-
-                  <Select value={renderMode} onValueChange={setRenderMode}>
-                    <SelectTrigger className="h-9 w-[120px]">
-                      <SelectValue placeholder="选择渲染器" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="excalidraw">Excalidraw</SelectItem>
-                      <SelectItem value="mermaid">Mermaid</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  <Button
+                  {/* <Button
                     variant="outline"
                     size="sm"
                     onClick={() => {
@@ -495,19 +418,9 @@ export default function Home() {
                     title="重置视图"
                   >
                     <RotateCcw className="h-4 w-4" />
-                  </Button>
+                  </Button> */}
 
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      window.dispatchEvent(new CustomEvent('toggleFullscreen'));
-                    }}
-                    className="h-9"
-                    title="全屏显示"
-                  >
-                    <Maximize className="h-4 w-4" />
-                  </Button>
+                  {/* 全屏按钮已移除 */}
                 </div>
               </div>
 
